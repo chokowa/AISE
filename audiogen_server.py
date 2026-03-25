@@ -153,10 +153,9 @@ def generate(req: GenerateRequest):
     else:
         actual_seed = req.seed
 
-    def latents_callback(pipe, step_index, timestep, callback_kwargs):
+    def legacy_callback(step, timestep, latents):
         if InterruptManager.interrupt_requested:
             raise RuntimeError("Generation interrupted by user")
-        return callback_kwargs
 
     try:
         if req.engine == "audiogen":
@@ -191,7 +190,7 @@ def generate(req: GenerateRequest):
                 num_inference_steps=100,
                 guidance_scale=7.0,
                 generator=generator,
-                callback_on_step_end=latents_callback
+                callback=legacy_callback
             )
             audio_array = output.audios[0]
             # 正規化
@@ -208,7 +207,7 @@ def generate(req: GenerateRequest):
                 num_inference_steps=50,
                 guidance_scale=7.5,
                 generator=generator,
-                callback_on_step_end=latents_callback
+                callback=legacy_callback
             )
             audio_array = output.audios[0]
             # 正規化
@@ -224,7 +223,7 @@ def generate(req: GenerateRequest):
                 num_inference_steps=100,
                 guidance_scale=8.0,
                 generator=generator,
-                callback_on_step_end=latents_callback
+                callback=legacy_callback
             )
             audio_array = output.audios[0]
             # 正規化
