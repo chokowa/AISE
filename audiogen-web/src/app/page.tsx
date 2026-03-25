@@ -155,6 +155,9 @@ export default function AudioGenDashboard() {
         if (res.data.status === "success") {
           await fetchHistory();
           setSelectedRecord(res.data.record);
+        } else if (res.data.status === "interrupted") {
+          // ユーザーによる中断の場合はアラートを出さずに終了
+          break;
         }
 
         // 最後のループでなければ少し待つ（UI更新と安定性のため）

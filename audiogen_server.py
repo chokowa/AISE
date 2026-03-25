@@ -249,8 +249,13 @@ def generate(req: GenerateRequest):
         return {"status": "success", "record": record}
         
     except Exception as e:
+        error_msg = str(e)
+        if "interrupted by user" in error_msg.lower():
+            print("Generation successfully interrupted.")
+            return {"status": "interrupted"}
+            
         print(f"Error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=error_msg)
 
 # --- 画像解析用：BLIP-Large (高品質・安定版) ---
 from PIL import Image
