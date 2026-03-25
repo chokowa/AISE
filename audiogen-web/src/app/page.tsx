@@ -23,7 +23,8 @@ import {
   Sparkles,
   Info,
   Camera,
-  Image as ImageIcon
+  Image as ImageIcon,
+  XCircle
 } from "lucide-react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -167,6 +168,16 @@ export default function AudioGenDashboard() {
     } finally {
       setIsGenerating(false);
       stopRequestedRef.current = false;
+    }
+  };
+
+  const handleAbort = async () => {
+    try {
+      await axios.post(`${API_BASE}/stop`);
+      // バッチも止める
+      stopRequestedRef.current = true;
+    } catch (err) {
+      console.error("Failed to send stop request:", err);
     }
   };
 
@@ -527,13 +538,22 @@ export default function AudioGenDashboard() {
                       </div>
 
                       {isGenerating ? (
-                        <button 
-                          onClick={() => stopRequestedRef.current = true}
-                          className="h-16 px-10 rounded-2xl font-black text-sm uppercase tracking-widest flex items-center justify-center gap-3 transition-all shadow-2xl bg-red-600 hover:bg-red-500 text-white shadow-red-600/20 active:scale-[0.98]"
-                        >
-                          <Pause className="w-5 h-5 fill-white" />
-                          Stop
-                        </button>
+                        <div className="flex flex-col gap-2">
+                          <button 
+                            onClick={handleAbort}
+                            className="h-10 px-6 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all bg-red-600 hover:bg-red-500 text-white shadow-lg shadow-red-600/20 active:scale-[0.98]"
+                          >
+                            <XCircle className="w-4 h-4" />
+                            Abort Now
+                          </button>
+                          <button 
+                            onClick={() => stopRequestedRef.current = true}
+                            className="h-10 px-6 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all bg-neutral-800 hover:bg-neutral-700 text-neutral-400 border border-white/5 active:scale-[0.98]"
+                          >
+                            <Pause className="w-4 h-4" />
+                            Stop Batch
+                          </button>
+                        </div>
                       ) : (
                         <button 
                           onClick={handleGenerate}

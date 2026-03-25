@@ -49,6 +49,17 @@ app.add_middleware(
 
 os.makedirs("outputs", exist_ok=True)
 app.mount("/audio", StaticFiles(directory="outputs"), name="audio")
+
+# --- 中断管理 ---
+class InterruptManager:
+    interrupt_requested = False
+
+@app.post("/stop")
+def stop_generation():
+    InterruptManager.interrupt_requested = True
+    print("Interrupt requested!")
+    return {"status": "stop requested"}
+
 # --- モデルキャッシュ管理 ---
 MODELS = {
     "audiogen": None,
@@ -133,11 +144,19 @@ def generate(req: GenerateRequest):
     final_filename = f"{file_id}.wav"
     full_path = os.path.join("outputs", final_filename)
 
+    # 中断フラグをリセット
+    InterruptManager.interrupt_requested = False
+
     # シードの決定
     if req.seed is None or req.seed < 0:
         actual_seed = torch.randint(0, 2**32 - 1, (1,)).item()
     else:
         actual_seed = req.seed
+
+    def latents_callback(pipe, step_index, timestep, callback_kwargs):
+        if InterruptManager.interrupt_requested:
+            raise RuntimeError("Generation interrupted by user")
+        return callback_kwargs
 
     try:
         if req.engine == "audiogen":
@@ -171,7 +190,8 @@ def generate(req: GenerateRequest):
                 audio_end_in_s=req.duration,
                 num_inference_steps=100,
                 guidance_scale=7.0,
-                generator=generator
+                generator=generator,
+                callback_on_step_end=latents_callback
             )
             audio_array = output.audios[0]
             # 正規化
@@ -187,7 +207,8 @@ def generate(req: GenerateRequest):
                 audio_length_in_s=req.duration,
                 num_inference_steps=50,
                 guidance_scale=7.5,
-                generator=generator
+                generator=generator,
+                callback_on_step_end=latents_callback
             )
             audio_array = output.audios[0]
             # 正規化
@@ -202,7 +223,8 @@ def generate(req: GenerateRequest):
                 audio_length_in_s=req.duration,
                 num_inference_steps=100,
                 guidance_scale=8.0,
-                generator=generator
+                generator=generator,
+                callback_on_step_end=latents_callback
             )
             audio_array = output.audios[0]
             # 正規化
