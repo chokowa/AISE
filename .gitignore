@@ -1,0 +1,28 @@
+# Python
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.bak
+*.pre_seed.bak
+
+# Node.js
+node_modules/
+.next/
+out/
+build/
+.env*
+
+# Audio Specific
+outputs/
+*.wav
+sounds.db
+*.db
+*.lnk
+audiocraft/
+
+# OS
+.DS_Store
+Thumbs.db
