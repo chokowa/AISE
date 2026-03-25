@@ -130,7 +130,7 @@ export default function AudioGenDashboard() {
     stopRequestedRef.current = false;
     setSelectedRecord(null);
 
-    let initialSeed = params.seed;
+    let initialSeed = isNaN(params.seed) ? -1 : params.seed;
     let lastResultSeed = -1;
 
     try {
@@ -635,8 +635,8 @@ export default function AudioGenDashboard() {
                           <label className="text-[10px] font-bold text-neutral-500 uppercase">Seed (-1 = Random)</label>
                           <input 
                             type="number" 
-                            value={params.seed}
-                            onChange={(e) => setParams({...params, seed: parseInt(e.target.value)})}
+                            value={isNaN(params.seed) ? "" : params.seed}
+                            onChange={(e) => setParams({...params, seed: e.target.value === "" ? NaN : parseInt(e.target.value)})}
                             className="bg-black/20 border border-white/5 rounded px-2 py-1 text-xs font-bold w-32 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
                           />
                         </div>
