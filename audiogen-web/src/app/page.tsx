@@ -67,6 +67,9 @@ export default function AudioGenDashboard() {
     seed: -1
   });
 
+  const [batchCount, setBatchCount] = useState(1);
+  const stopRequestedRef = useRef(false);
+
   const waveformRef = useRef<HTMLDivElement>(null);
   const wavesurfer = useRef<WaveSurfer | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -121,25 +124,49 @@ export default function AudioGenDashboard() {
   const handleGenerate = async () => {
     if (!currentPrompt || isGenerating) return;
     setIsGenerating(true);
+    stopRequestedRef.current = false;
     setSelectedRecord(null);
 
+    let initialSeed = params.seed;
+
     try {
-      const res = await axios.post(`${API_BASE}/generate`, {
-        engine: selectedEngine,
-        prompt: currentPrompt,
-        duration: duration,
-        ...params
-      });
-      
-      if (res.data.status === "success") {
-        await fetchHistory();
-        setSelectedRecord(res.data.record);
+      for (let i = 0; i < batchCount; i++) {
+        if (stopRequestedRef.current) break;
+
+        // シード値の決定ロジック
+        let runSeed = initialSeed;
+        if (initialSeed === -1) {
+          // ランダム設定の場合は毎回新しいランダム値を生成
+          runSeed = Math.floor(Math.random() * 2147483647);
+        } else {
+          // 固定値の場合は1ずつインクリメント
+          runSeed = initialSeed + i;
+        }
+
+        const res = await axios.post(`${API_BASE}/generate`, {
+          engine: selectedEngine,
+          prompt: currentPrompt,
+          duration: duration,
+          ...params,
+          seed: runSeed
+        });
+        
+        if (res.data.status === "success") {
+          await fetchHistory();
+          setSelectedRecord(res.data.record);
+        }
+
+        // 最後のループでなければ少し待つ（UI更新と安定性のため）
+        if (i < batchCount - 1) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
       }
     } catch (err) {
       alert("Generation failed. Please make sure the backend is running.");
       console.error(err);
     } finally {
       setIsGenerating(false);
+      stopRequestedRef.current = false;
     }
   };
 
@@ -468,39 +495,64 @@ export default function AudioGenDashboard() {
                   />
                 </div>
 
-                <div className="flex items-end justify-between gap-12">
-                  <div className="flex-1 space-y-6">
-                    <div className="space-y-3">
-                      <div className="flex justify-between text-[10px] font-bold text-neutral-500 uppercase tracking-widest">
-                        <label>Generation Length</label>
-                        <span className="text-white font-mono">{duration}s</span>
+                  <div className="flex items-end justify-between gap-12">
+                    <div className="flex-1 space-y-6">
+                      <div className="space-y-3">
+                        <div className="flex justify-between text-[10px] font-bold text-neutral-500 uppercase tracking-widest">
+                          <label>Generation Length</label>
+                          <span className="text-white font-mono">{duration}s</span>
+                        </div>
+                        <input 
+                          type="range" 
+                          min="1" max={selectedEngine === "stable_audio_open" ? 45 : 30} 
+                          value={duration}
+                          onChange={(e) => setDuration(parseInt(e.target.value))}
+                          className="w-full h-1.5 rounded-full appearance-none cursor-pointer bg-white/5 accent-indigo-500"
+                        />
                       </div>
-                      <input 
-                        type="range" 
-                        min="1" max={selectedEngine === "stable_audio_open" ? 45 : 30} 
-                        value={duration}
-                        onChange={(e) => setDuration(parseInt(e.target.value))}
-                        className="w-full h-1.5 rounded-full appearance-none cursor-pointer bg-white/5 accent-indigo-500"
-                      />
+                    </div>
+
+                    <div className="flex items-center gap-4">
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest px-1">Batch Count</label>
+                        <input 
+                          type="number" 
+                          min="1" 
+                          max="50"
+                          value={batchCount}
+                          onChange={(e) => setBatchCount(Math.max(1, parseInt(e.target.value) || 1))}
+                          disabled={isGenerating}
+                          className="w-24 bg-[#0c0c0e] border border-white/5 rounded-xl h-11 px-4 text-sm font-bold focus:outline-none focus:ring-1 focus:ring-indigo-500/50 disabled:opacity-50"
+                        />
+                      </div>
+
+                      {isGenerating ? (
+                        <button 
+                          onClick={() => stopRequestedRef.current = true}
+                          className="h-16 px-10 rounded-2xl font-black text-sm uppercase tracking-widest flex items-center justify-center gap-3 transition-all shadow-2xl bg-red-600 hover:bg-red-500 text-white shadow-red-600/20 active:scale-[0.98]"
+                        >
+                          <Pause className="w-5 h-5 fill-white" />
+                          Stop
+                        </button>
+                      ) : (
+                        <button 
+                          onClick={handleGenerate}
+                          disabled={!currentPrompt || isGenerating}
+                          className={cn(
+                            "h-16 px-10 rounded-2xl font-black text-sm uppercase tracking-widest flex items-center justify-center gap-3 transition-all shadow-2xl active:scale-[0.98]",
+                            !currentPrompt
+                              ? "bg-neutral-800 text-neutral-500 cursor-not-allowed" 
+                              : selectedEngine === "stable_audio_open"
+                                ? "bg-gradient-to-tr from-amber-600 to-amber-400 text-white shadow-amber-600/20 hover:brightness-110"
+                                : "bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-600/20"
+                          )}
+                        >
+                          <Mic className="w-5 h-5" />
+                          Inference
+                        </button>
+                      )}
                     </div>
                   </div>
-                  
-                  <button 
-                    onClick={handleGenerate}
-                    disabled={!currentPrompt || isGenerating}
-                    className={cn(
-                      "h-16 px-10 rounded-2xl font-black text-sm uppercase tracking-widest flex items-center justify-center gap-3 transition-all shadow-2xl active:scale-[0.98]",
-                      isGenerating || !currentPrompt
-                        ? "bg-neutral-800 text-neutral-500 cursor-not-allowed" 
-                        : selectedEngine === "stable_audio_open"
-                          ? "bg-gradient-to-tr from-amber-600 to-amber-400 text-white shadow-amber-600/20 hover:brightness-110"
-                          : "bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-600/20"
-                    )}
-                  >
-                    {isGenerating ? <Loader2 className="w-5 h-5 animate-spin" /> : <Mic className="w-5 h-5" />}
-                    {isGenerating ? "Synthesizing..." : "Inference"}
-                  </button>
-                </div>
 
                 {/* アドバンスド */}
                 <div className="pt-6 border-t border-white/5">
