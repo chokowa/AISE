@@ -24,7 +24,8 @@ import {
   Info,
   Camera,
   Image as ImageIcon,
-  XCircle
+  XCircle,
+  RefreshCw
 } from "lucide-react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -69,6 +70,7 @@ export default function AudioGenDashboard() {
   });
 
   const [batchCount, setBatchCount] = useState(1);
+  const [seedStrategy, setSeedStrategy] = useState<"keep" | "fix" | "increment">("keep");
   const stopRequestedRef = useRef(false);
 
   const waveformRef = useRef<HTMLDivElement>(null);
@@ -129,6 +131,7 @@ export default function AudioGenDashboard() {
     setSelectedRecord(null);
 
     let initialSeed = params.seed;
+    let lastResultSeed = -1;
 
     try {
       for (let i = 0; i < batchCount; i++) {
@@ -155,6 +158,7 @@ export default function AudioGenDashboard() {
         if (res.data.status === "success") {
           await fetchHistory();
           setSelectedRecord(res.data.record);
+          lastResultSeed = res.data.record.seed;
         } else if (res.data.status === "interrupted") {
           // ユーザーによる中断の場合はアラートを出さずに終了
           break;
@@ -171,6 +175,15 @@ export default function AudioGenDashboard() {
     } finally {
       setIsGenerating(false);
       stopRequestedRef.current = false;
+
+      // 生成後のシード処理
+      if (lastResultSeed !== -1) {
+        if (seedStrategy === "fix") {
+          setParams(prev => ({ ...prev, seed: lastResultSeed }));
+        } else if (seedStrategy === "increment") {
+          setParams(prev => ({ ...prev, seed: lastResultSeed + 1 }));
+        }
+      }
     }
   };
 
@@ -618,14 +631,39 @@ export default function AudioGenDashboard() {
                           className="w-full accent-indigo-500" />
                       </div>
                       <div className="space-y-4 col-span-3">
-                        <div className="flex justify-between">
+                        <div className="flex justify-between items-center bg-black/20 p-4 rounded-xl border border-white/5">
                           <label className="text-[10px] font-bold text-neutral-500 uppercase">Seed (-1 = Random)</label>
                           <input 
                             type="number" 
                             value={params.seed}
                             onChange={(e) => setParams({...params, seed: parseInt(e.target.value)})}
-                            className="bg-black/20 border border-white/5 rounded px-2 py-0.5 text-xs font-bold w-32 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
+                            className="bg-black/20 border border-white/5 rounded px-2 py-1 text-xs font-bold w-32 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
                           />
+                        </div>
+
+                        <div className="flex flex-col gap-4 mt-2">
+                          <label className="text-[10px] font-bold text-neutral-500 uppercase">After Generation Seed Strategy</label>
+                          <div className="flex gap-2">
+                            {[
+                              { id: "keep", label: "Keep", icon: <RefreshCw className="w-3 h-3" /> },
+                              { id: "fix", label: "Fix Last", icon: <Activity className="w-3 h-3" /> },
+                              { id: "increment", label: "Inc (+1)", icon: <Plus className="w-3 h-3" /> }
+                            ].map((s) => (
+                              <button
+                                key={s.id}
+                                onClick={() => setSeedStrategy(s.id as any)}
+                                className={cn(
+                                  "flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-[10px] font-bold transition-all border",
+                                  seedStrategy === s.id
+                                    ? "bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-600/20"
+                                    : "bg-white/5 border-white/5 text-neutral-500 hover:bg-white/10"
+                                )}
+                              >
+                                {s.icon}
+                                {s.label}
+                              </button>
+                            ))}
+                          </div>
                         </div>
                       </div>
                     </div>
